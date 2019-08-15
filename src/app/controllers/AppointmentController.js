@@ -1,8 +1,10 @@
 import * as Yup from 'yup';
-import { startOfHour, parseISO, isBefore } from 'date-fns';
+import { startOfHour, parseISO, isBefore, format } from 'date-fns';
+import pt from 'date-fns/locale/pt';
 import Appointment from '../models/Appointment';
 import User from '../models/User';
 import File from '../models/File';
+import Notification from '../schemas/Notification';
 
 class AppointmentController {
   async index(req, res) {
@@ -57,7 +59,7 @@ class AppointmentController {
         .json({ error: 'You are not allowed to create appointments' });
     }
 
-    // Verificar se data é posterior
+    // Verify if outdated
 
     const hourStart = startOfHour(parseISO(date));
 
@@ -65,7 +67,7 @@ class AppointmentController {
       return res.status(400).json({ error: 'Past date not permitted' });
     }
 
-    // Verificar disponibilidade de horario
+    // Check availability
 
     const checkAvailability = await Appointment.findOne({
       where: {
@@ -79,10 +81,32 @@ class AppointmentController {
       return res.status(400).json({ error: 'Appointment date not available' });
     }
 
+    // Verify if provider is creating appointment for itself
+
+    if (req.body.userId === provider_id) {
+      return res
+        .status(400)
+        .json({ error: 'Cannot create appointment for sel' });
+    }
+
     const appointment = await Appointment.create({
       user_id: req.userId,
       provider_id,
       date,
+    });
+
+    // Notify Appointment provider
+
+    const user = await User.findByPk(req.userId);
+    const formattedDate = format(
+      hourStart,
+      "'dia' dd 'de' MMMM', às' H:mm'h'",
+      { locale: pt }
+    );
+
+    await Notification.create({
+      content: `Novo agendamento de ${user.name} para ${formattedDate}`,
+      user: provider_id,
     });
 
     return res.json(appointment);
