@@ -47,17 +47,19 @@ class AppointmentController {
 
     const { provider_id, date } = req.body;
 
-    // Verificar se o provider_id é provider
+    // Check if provider_id is a provider
 
     const isProvider = await User.findOne({
       where: { id: provider_id, provider: true },
     });
 
     if (!isProvider) {
-      return res
-        .status(401)
-        .json({ error: 'You are not allowed to create appointments' });
+      return res.status(401).json({
+        error: 'Provider ID selected is not a provider, please choose another',
+      });
     }
+
+    // Verify if provider is creating appointment for itself
 
     // Verify if outdated
 
@@ -79,14 +81,6 @@ class AppointmentController {
 
     if (checkAvailability) {
       return res.status(400).json({ error: 'Appointment date not available' });
-    }
-
-    // Verify if provider is creating appointment for itself
-
-    if (req.body.userId === provider_id) {
-      return res
-        .status(400)
-        .json({ error: 'Cannot create appointment for sel' });
     }
 
     const appointment = await Appointment.create({
